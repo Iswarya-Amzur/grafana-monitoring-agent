@@ -65,6 +65,52 @@
 
                             <hr>
 
+                            <h6 class="text-primary">OpenAI Configuration</h6>
+                            
+                            <div class="mb-3">
+                                <label for="openaiApiKey" class="form-label">OpenAI API Key</label>
+                                <input type="password" class="form-control" id="openaiApiKey" name="openai_api_key" 
+                                       placeholder="sk-...">
+                                <div class="form-text">Your OpenAI API key for AI-powered analysis</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="openaiModel" class="form-label">OpenAI Model</label>
+                                <select class="form-select" id="openaiModel" name="openai_model">
+                                    <option value="gpt-4o">GPT-4 Omni (Recommended)</option>
+                                    <option value="gpt-4-vision-preview">GPT-4 Vision Preview</option>
+                                    <option value="gpt-4">GPT-4</option>
+                                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                </select>
+                                <div class="form-text">Choose the AI model for analysis</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="useOpenaiVision" name="use_openai_vision" checked>
+                                    <label class="form-check-label" for="useOpenaiVision">
+                                        Enable Vision API
+                                    </label>
+                                </div>
+                                <div class="form-text">Use OpenAI's vision capabilities for image analysis</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="openaiMaxTokens" class="form-label">Max Tokens</label>
+                                <input type="number" class="form-control" id="openaiMaxTokens" name="openai_max_tokens" 
+                                       value="4000" min="100" max="8000">
+                                <div class="form-text">Maximum tokens for AI response</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="openaiTemperature" class="form-label">Temperature</label>
+                                <input type="number" class="form-control" id="openaiTemperature" name="openai_temperature" 
+                                       value="0.1" min="0" max="2" step="0.1">
+                                <div class="form-text">AI creativity level (0 = deterministic, 2 = creative)</div>
+                            </div>
+
+                            <hr>
+
                             <div class="mb-3">
                                 <label for="defaultOutputFormat" class="form-label">Default Output Format</label>
                                 <select class="form-select" id="defaultOutputFormat" name="default_output_format">

@@ -13,6 +13,13 @@ class Config:
     GRAFANA_PASSWORD = os.getenv('GRAFANA_PASSWORD', '')
     GRAFANA_API_KEY = os.getenv('GRAFANA_API_KEY', '')
     
+    # OpenAI Configuration
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o')
+    USE_OPENAI_VISION = os.getenv('USE_OPENAI_VISION', 'true').lower() == 'true'
+    OPENAI_MAX_TOKENS = int(os.getenv('OPENAI_MAX_TOKENS', 4000))
+    OPENAI_TEMPERATURE = float(os.getenv('OPENAI_TEMPERATURE', 0.1))
+    
     # Flask Configuration
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')

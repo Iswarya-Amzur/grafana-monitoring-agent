@@ -9,6 +9,8 @@ from config import Config
 from image_processor import ImageProcessor
 from report_generator import ReportGenerator
 from grafana_client import GrafanaClient
+from openai_processor import OpenAIProcessor
+from llm_report_generator import LLMReportGenerator
 
 app = Flask(__name__)
 Config.init_app(app)
@@ -17,6 +19,8 @@ Config.init_app(app)
 image_processor = ImageProcessor()
 report_generator = ReportGenerator()
 grafana_client = GrafanaClient()
+openai_processor = OpenAIProcessor()
+llm_report_generator = LLMReportGenerator()
 
 @app.route('/')
 def index():
@@ -32,6 +36,8 @@ def upload_files():
         
         files = request.files.getlist('files')
         output_format = request.form.get('output_format', 'csv')
+        processing_method = request.form.get('processing_method', 'llm')  # 'llm' or 'ocr'
+        custom_prompt = request.form.get('custom_prompt', '')
         
         if not files or files[0].filename == '':
             return jsonify({'error': 'No files selected'}), 400
@@ -48,23 +54,52 @@ def upload_files():
                 file.save(filepath)
                 uploaded_files.append(filepath)
                 
-                # Process image
-                result = image_processor.process_image(filepath)
-                if result:
-                    processed_data.append(result)
+                # Process image based on method
+                if processing_method == 'llm':
+                    # Use OpenAI LLM processing
+                    if custom_prompt:
+                        result = openai_processor.process_image_with_custom_prompt(filepath, custom_prompt)
+                    else:
+                        result = openai_processor.analyze_dashboard_image(filepath)
+                    
+                    if result:
+                        # Add image info to result
+                        result['image_info'] = {
+                            'filename': filename,
+                            'filepath': filepath,
+                            'processing_method': 'llm'
+                        }
+                        processed_data.append(result)
+                else:
+                    # Use traditional OCR processing
+                    result = image_processor.process_image(filepath)
+                    if result:
+                        result['processing_method'] = 'ocr'
+                        processed_data.append(result)
         
         if not processed_data:
             return jsonify({'error': 'No images could be processed'}), 400
         
-        # Generate report
-        if output_format == 'csv':
-            report_path = report_generator.generate_csv_report(processed_data)
-        elif output_format == 'txt':
-            report_path = report_generator.generate_txt_report(processed_data)
-        elif output_format == 'json':
-            report_path = report_generator.generate_json_report(processed_data)
+        # Generate report based on processing method
+        if processing_method == 'llm':
+            if output_format == 'csv':
+                report_path = llm_report_generator.generate_llm_csv_report(processed_data)
+            elif output_format == 'txt':
+                report_path = llm_report_generator.generate_llm_txt_report(processed_data)
+            elif output_format == 'json':
+                report_path = llm_report_generator.generate_llm_json_report(processed_data)
+            else:
+                return jsonify({'error': 'Invalid output format'}), 400
         else:
-            return jsonify({'error': 'Invalid output format'}), 400
+            # Use traditional report generator
+            if output_format == 'csv':
+                report_path = report_generator.generate_csv_report(processed_data)
+            elif output_format == 'txt':
+                report_path = report_generator.generate_txt_report(processed_data)
+            elif output_format == 'json':
+                report_path = report_generator.generate_json_report(processed_data)
+            else:
+                return jsonify({'error': 'Invalid output format'}), 400
         
         if report_path:
             # Generate summary for response
@@ -72,6 +107,7 @@ def upload_files():
                 'total_images': len(processed_data),
                 'report_file': os.path.basename(report_path),
                 'output_format': output_format,
+                'processing_method': processing_method,
                 'processed_at': datetime.now().isoformat()
             }
             
@@ -95,6 +131,89 @@ def download_file(filename):
             return send_file(file_path, as_attachment=True)
         else:
             return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/test-openai')
+def test_openai_connection():
+    """Test OpenAI API connection"""
+    try:
+        is_connected = openai_processor.test_api_connection()
+        
+        return jsonify({
+            'connected': is_connected,
+            'model': Config.OPENAI_MODEL,
+            'vision_enabled': Config.USE_OPENAI_VISION,
+            'api_key_configured': bool(Config.OPENAI_API_KEY)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analyze-with-prompt', methods=['POST'])
+def analyze_with_custom_prompt():
+    """Analyze image with custom prompt"""
+    try:
+        data = request.get_json()
+        image_path = data.get('image_path', '')
+        custom_prompt = data.get('prompt', '')
+        
+        if not image_path or not custom_prompt:
+            return jsonify({'error': 'Image path and prompt are required'}), 400
+        
+        # Check if image exists
+        if not os.path.exists(image_path):
+            return jsonify({'error': 'Image not found'}), 404
+        
+        # Analyze with custom prompt
+        result = openai_processor.process_image_with_custom_prompt(image_path, custom_prompt)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'analysis': result,
+                'processed_at': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({'error': 'Failed to analyze image'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-comparative-report', methods=['POST'])
+def generate_comparative_report():
+    """Generate comparative report from multiple analyses"""
+    try:
+        data = request.get_json()
+        report_files = data.get('report_files', [])
+        
+        if not report_files:
+            return jsonify({'error': 'No report files provided'}), 400
+        
+        # Load analysis data from files
+        analysis_data_list = []
+        for report_file in report_files:
+            file_path = os.path.join(Config.OUTPUT_FOLDER, report_file)
+            if os.path.exists(file_path) and report_file.endswith('.json'):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    report_data = json.load(f)
+                    if 'dashboards' in report_data:
+                        analysis_data_list.extend(report_data['dashboards'])
+        
+        if not analysis_data_list:
+            return jsonify({'error': 'No valid analysis data found'}), 400
+        
+        # Generate comparative report
+        report_path = llm_report_generator.generate_comparative_report(analysis_data_list)
+        
+        if report_path:
+            return jsonify({
+                'success': True,
+                'report_file': os.path.basename(report_path),
+                'dashboards_analyzed': len(analysis_data_list)
+            })
+        else:
+            return jsonify({'error': 'Failed to generate comparative report'}), 500
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

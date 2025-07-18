@@ -79,12 +79,28 @@
                             </div>
                             
                             <div class="mb-3">
+                                <label for="processingMethod" class="form-label">Processing Method</label>
+                                <select class="form-select" id="processingMethod" name="processing_method">
+                                    <option value="llm">AI-Powered Analysis (OpenAI GPT-4)</option>
+                                    <option value="ocr">Traditional OCR</option>
+                                </select>
+                                <div class="form-text">AI-Powered analysis provides more accurate and detailed insights</div>
+                            </div>
+                            
+                            <div class="mb-3">
                                 <label for="outputFormat" class="form-label">Output Format</label>
                                 <select class="form-select" id="outputFormat" name="output_format">
                                     <option value="csv">CSV</option>
                                     <option value="txt">TXT</option>
                                     <option value="json">JSON</option>
                                 </select>
+                            </div>
+
+                            <div class="mb-3" id="customPromptSection">
+                                <label for="customPrompt" class="form-label">Custom Analysis Prompt (Optional)</label>
+                                <textarea class="form-control" id="customPrompt" name="custom_prompt" rows="3" 
+                                          placeholder="Enter specific instructions for the AI analysis (e.g., 'Focus on memory usage patterns and identify any anomalies')"></textarea>
+                                <div class="form-text">Leave empty to use default comprehensive analysis</div>
                             </div>
 
                             <div class="mb-3" id="filePreview" style="display: none;">
@@ -111,7 +127,29 @@
             </div>
 
             <div class="col-md-4">
-                <div class="card">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-robot"></i>
+                            AI Analysis Status
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="aiStatus">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator status-disconnected" id="aiStatusIndicator"></span>
+                                <span id="aiStatusText">Checking AI connection...</span>
+                            </div>
+                            <small class="text-muted" id="aiModel"></small>
+                        </div>
+                        <button class="btn btn-outline-success btn-sm mt-2" id="testAiBtn">
+                            <i class="fas fa-sync"></i>
+                            Test AI Connection
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-server"></i>
@@ -266,6 +304,46 @@
             }
         });
 
+        // Processing method toggle
+        const processingMethod = document.getElementById('processingMethod');
+        const customPromptSection = document.getElementById('customPromptSection');
+        
+        processingMethod.addEventListener('change', function() {
+            if (this.value === 'llm') {
+                customPromptSection.style.display = 'block';
+            } else {
+                customPromptSection.style.display = 'none';
+            }
+        });
+
+        // AI connection testing
+        async function testAiConnection() {
+            const aiStatusIndicator = document.getElementById('aiStatusIndicator');
+            const aiStatusText = document.getElementById('aiStatusText');
+            const aiModel = document.getElementById('aiModel');
+            
+            aiStatusText.textContent = 'Testing AI connection...';
+            
+            try {
+                const response = await fetch('/api/test-openai');
+                const data = await response.json();
+                
+                if (data.connected) {
+                    aiStatusIndicator.className = 'status-indicator status-connected';
+                    aiStatusText.textContent = 'AI connection successful';
+                    aiModel.textContent = `Model: ${data.model} | Vision: ${data.vision_enabled ? 'Enabled' : 'Disabled'}`;
+                } else {
+                    aiStatusIndicator.className = 'status-indicator status-disconnected';
+                    aiStatusText.textContent = 'AI connection failed';
+                    aiModel.textContent = 'Check your OpenAI API key';
+                }
+            } catch (error) {
+                aiStatusIndicator.className = 'status-indicator status-disconnected';
+                aiStatusText.textContent = 'AI connection error';
+                aiModel.textContent = error.message;
+            }
+        }
+
         // Connection testing
         async function testConnection() {
             const statusIndicator = document.getElementById('statusIndicator');
@@ -332,10 +410,12 @@
         }
 
         // Event listeners
+        document.getElementById('testAiBtn').addEventListener('click', testAiConnection);
         document.getElementById('testConnectionBtn').addEventListener('click', testConnection);
         document.getElementById('refreshReportsBtn').addEventListener('click', refreshReports);
 
         // Initialize
+        testAiConnection();
         testConnection();
         refreshReports();
     </script>
